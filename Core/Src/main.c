@@ -67,12 +67,12 @@ char Menu[1000] 		={0};
 enum{
 	Start_Menu 				= 1,
 	Waitting_Input 			= 10,
-	Menu_0 					= 20,
-	Menu_0_Waitting_Input	= 30,
-	Menu_1 					= 40,
-	Menu_1_Waitting_Input	= 50,
-	Menu_2 					= 60,
-	Menu_2_Waitting_Input	= 70,
+	Menu_1 					= 20,
+	Menu_1_Waitting_Input	= 30,
+	Menu_2 					= 40,
+	Menu_2_Waitting_Input	= 50,
+	Menu_3 					= 60,
+	Menu_3_Waitting_Input	= 70,
 };
 
 
@@ -160,18 +160,18 @@ int main(void)
 
 		switch(State){
 			case Start_Menu:
-				sprintf(Menu, "Generator Wave\r\n 0.Sawtooth\n\r 1.Sine wave\n\r 2.Square wave\n\r");
+				sprintf(Menu, "\n\n\n\n\n\nSELECT GENERATOR WAVE\r\n "
+						"1.Sawtooth\n\r "
+						"2.Sine   Wave\n\r "
+						"3.Square Wave\n\r");
 				HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
 				State = Waitting_Input;
 				break;
+
 			case Waitting_Input:
 				switch(inputchar)
 				{
 				case -1:  //No Input
-					break;
-				case '0':
-
-					State = Menu_0;
 					break;
 				case '1':
 
@@ -181,21 +181,75 @@ int main(void)
 
 					State = Menu_2;
 					break;
+				case '3':
+
+					State = Menu_3;
+					break;
 				default:
-					sprintf(Menu, "Error! You can press only 0. 1. or 2.\r\n");
+					sprintf(Menu, "Error! You can press only 1. 2. or 3.\r\n");
 					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
 					break;
 				}
 				break;
 
-			case Menu_0:
-				sprintf(Menu, 	"Generator Wave \r\n"
-								"a.Freq Up +1Hz\r\n d.Freq Down -1Hz\r\n"
-								"A.Freq Up +0.1Hz\r\n D.Freq Down -0.1Hz\r\n");
+			case Menu_1:
+				sprintf(Menu, 	"\n\nGenerator Sawtooth Wave \r\n"
+						"a.Freq Up   (+1Hz) 	A.(+0.1Hz)\r\n"
+						"d.Freq Down (-1Hz) 	D.(-0.1Hz)\r\n"
+						"\n"
+						"q.V High Up (+0.1V)	w.V High Down (-0.1V)\r\n"
+						"e.V Low  Up (+0.1V)	r.V Low  Down (-0.1V)\r\n"
+						"\n"
+						"w.Slope Up		s.Slope down\r\n"
+						"x.Back\r\n");
 					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
-					State = Waitting_Input;
+					State = Menu_1_Waitting_Input;
 					break;
 
+			case Menu_1_Waitting_Input :
+				switch(inputchar){
+					break;
+					}
+				break;
+
+			case Menu_2:
+				sprintf(Menu, 	"\n\nGenerator Sine Wave \r\n"
+						"a.Freq Up   (+1Hz)\r\n"
+						"d.Freq Down (-1Hz)\r\n"
+						"\n"
+						"q.V High Up (+0.1V)	w.V High Down (-0.1V)\r\n"
+						"e.V Low  Up (+0.1V)	r.V Low  Down (-0.1V)\r\n"
+						"\n"
+						"x.Back\r\n");
+					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
+					State = Menu_2_Waitting_Input;
+					break;
+
+			case Menu_2_Waitting_Input :
+				switch(inputchar){
+					break;
+					}
+				break;
+
+			case Menu_3:
+				sprintf(Menu, 	"\n\nGenerator Square Wave \r\n"
+						"a.Freq Up   (+1Hz) 	A.(+0.1Hz)\r\n"
+						"d.Freq Down (-1Hz) 	D.(-0.1Hz)\r\n"
+						"\n"
+						"q.V High Up (+0.1V)	w.V High Down (-0.1V)\r\n"
+						"e.V Low  Up (+0.1V)	r.V Low  Down (-0.1V)\r\n"
+						"\n"
+						"w..Duty cycle up (+10 Percent)	s..Duty cycle up (-10 Percent)\r\n"
+						"x.Back\r\n");
+					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
+					State = Menu_3_Waitting_Input;
+					break;
+
+			case Menu_3_Waitting_Input :
+				switch(inputchar){
+					break;
+					}
+				break;
 		}
     /* USER CODE END WHILE */
 
