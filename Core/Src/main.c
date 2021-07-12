@@ -75,7 +75,6 @@ enum{
 	Menu_2_Waitting_Input	= 70,
 };
 
-uint8_t State = 1;
 
 /* USER CODE END PV */
 
@@ -161,10 +160,43 @@ int main(void)
 
 		switch(State){
 			case Start_Menu:
-				sprintf(Menu, "Menu\r\n 0.LEDControl\n\r 1.ButtonStatus\n\r");
+				sprintf(Menu, "Generator Wave\r\n 0.Sawtooth\n\r 1.Sine wave\n\r 2.Square wave\n\r");
 				HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
 				State = Waitting_Input;
 				break;
+			case Waitting_Input:
+				switch(inputchar)
+				{
+				case -1:  //No Input
+					break;
+				case '0':
+
+					State = Menu_0;
+					break;
+				case '1':
+
+					State = Menu_1;
+					break;
+				case '2':
+
+					State = Menu_2;
+					break;
+				default:
+					sprintf(Menu, "Error! You can press only 0. 1. or 2.\r\n");
+					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
+					break;
+				}
+				break;
+
+			case Menu_0:
+				sprintf(Menu, 	"Generator Wave \r\n"
+								"a.Freq Up +1Hz\r\n d.Freq Down -1Hz\r\n"
+								"A.Freq Up +0.1Hz\r\n D.Freq Down -0.1Hz\r\n");
+					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
+					State = Waitting_Input;
+					break;
+
+		}
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
