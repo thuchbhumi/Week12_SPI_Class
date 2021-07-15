@@ -53,12 +53,35 @@ TIM_HandleTypeDef htim11;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-uint16_t ADCin = 0;
-uint64_t _micro = 0;
-uint16_t dataOut = 0;
-//upper 4 bit of DAC
 uint8_t DACConfig = 0b0011;
-uint8_t State =1 ;
+uint8_t State 		=1 ;
+uint8_t Mode		=0 ;
+uint8_t Slope		= 1;
+uint8_t	Duty_C		=0;
+
+uint16_t ADCin 		= 0;
+uint16_t dataOut	= 0;
+
+uint64_t _micro 	= 0;
+
+float Freq 			= 1;
+float Freq_Saw 		= 1;
+float Freq_Sin  	= 1;
+float Freq_Square 	= 1;
+float VHigh_Sin 	=3.3;
+float VLow_Sin		=0;
+float VHigh_Square 	=3.3;
+float VLow_Square	=0;
+float VHigh_Saw 	=3.3;
+float VLow_Saw		=0;
+float Time 			=0.0;
+float Rad			=0;
+float Amp			=0;
+float Ver_Shift		=0;
+
+int Sum_Freq 		=0;
+//upper 4 bit of DAC
+
 
 char TxDataBuffer[32] 	={0};
 char RxDataBuffer[32] 	={0};
@@ -76,6 +99,7 @@ enum{
 };
 
 
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -83,8 +107,8 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_USART2_UART_Init(void);
-static void MX_SPI3_Init(void);
 static void MX_ADC1_Init(void);
+static void MX_SPI3_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_TIM11_Init(void);
 /* USER CODE BEGIN PFP */
@@ -129,8 +153,8 @@ int main(void)
   MX_GPIO_Init();
   MX_DMA_Init();
   MX_USART2_UART_Init();
-  MX_SPI3_Init();
   MX_ADC1_Init();
+  MX_SPI3_Init();
   MX_TIM3_Init();
   MX_TIM11_Init();
   /* USER CODE BEGIN 2 */
@@ -157,32 +181,78 @@ int main(void)
 			sprintf(TxDataBuffer, "%c\r\n", inputchar);
 			HAL_UART_Transmit(&huart2, (uint8_t*)TxDataBuffer, strlen(TxDataBuffer), 1000);
 		}
+//..............................................................Calculate Menu...........................................................................
+
+		static uint64_t timestamp = 0;
+		if (micros() - timestamp > 10000){
+			timestamp = micros();
+			Time +=0.01;
+
+//..............................................................Calculate Sawtooth Wave...........................................................................
+
+			if(Mode == 1 ){
+				if(Slope==1){
+					if(Time <= (1/Freq_Saw)){
+						dataOut = (((VHigh_Saw*(4096.0/3.3))-(VLow_Saw*(4096.0/3.3)))/(1/Freq_Saw))*Time + (VLow_Saw*(4096.0/3.3));
+					}
+					else{
+						Time = 0.0;
+					}
+				}
+				else{
+					if(Time <= (1/Freq_Saw)){
+						dataOut = (((VLow_Saw*(4096.0/3.3))-(VHigh_Saw*(4096.0/3.3)))/(1/Freq_Saw))*Time + (VHigh_Saw*(4096.0/3.3));
+					}
+					else{
+						Time = 0.0;
+					}
+				}
+			}
+
+//..............................................................Calculate Sine Wave...........................................................................
+
+			if(Mode == 2)
+			{
+				Rad += 0.01;
+				Amp =((VHigh_Sin*(4096.0/3.3))-(VLow_Sin*(4096.0/3.3)))/2;
+				Ver_Shift =((VHigh_Sin*(4096.0/3.3))+(VLow_Sin*(4096.0/3.3)))/2;
+				dataOut = (Amp)*sin(2*M_PI*Freq_Sin*Rad)+(Ver_Shift);
+			}
+
+//..............................................................Calculate Square Wave...........................................................................
+
+			if(Mode == 3){
+				dataOut = dataOut;
+			}
+
+
+		}
+//..............................................................Main Menu...........................................................................
 
 		switch(State){
 			case Start_Menu:
 				sprintf(Menu, "\n\n\n\n\n\nSELECT GENERATOR WAVE\r\n "
-						"1.Sawtooth\n\r "
-						"2.Sine   Wave\n\r "
-						"3.Square Wave\n\r");
+						"1.Sawtooth	Wave\n\r "
+						"2.Sine   	Wave\n\r "
+						"3.Square 	Wave\n\r");
 				HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
 				State = Waitting_Input;
 				break;
-
 			case Waitting_Input:
 				switch(inputchar)
 				{
 				case -1:  //No Input
 					break;
 				case '1':
-
+					Mode =1;
 					State = Menu_1;
 					break;
 				case '2':
-
+					Mode =2;
 					State = Menu_2;
 					break;
 				case '3':
-
+					Mode =3;
 					State = Menu_3;
 					break;
 				default:
@@ -192,7 +262,9 @@ int main(void)
 				}
 				break;
 
-			case Menu_1:
+//..............................................................Generator Sawtooth Wave .............................................................
+
+				case Menu_1:
 				sprintf(Menu, 	"\n\nGenerator Sawtooth Wave \r\n"
 						"a.Freq Up   (+1Hz) 	A.(+0.1Hz)\r\n"
 						"d.Freq Down (-1Hz) 	D.(-0.1Hz)\r\n"
@@ -200,36 +272,271 @@ int main(void)
 						"q.V High Up (+0.1V)	w.V High Down (-0.1V)\r\n"
 						"e.V Low  Up (+0.1V)	r.V Low  Down (-0.1V)\r\n"
 						"\n"
-						"w.Slope Up		s.Slope down\r\n"
+						"z.Slope Up		c.Slope down\r\n"
+						"p.Print All\r\n"
 						"x.Back\r\n");
 					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
 					State = Menu_1_Waitting_Input;
 					break;
 
+//..............................................................Menu Sawtooth Wave .............................................................
+
 			case Menu_1_Waitting_Input :
 				switch(inputchar){
+				case -1:  //No Input
+					break;
+				case 'z':
+					Slope = 1;
+					sprintf(Menu, "Slope down\r\n");
+					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
+					break;
+				case 'c':
+					Slope = -1;
+					sprintf(Menu, "Slope up\r\n");
+					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
+					break;
+
+
+				case 'a':
+					if(Freq_Saw>9){
+						Freq_Saw =10 ;
+					}
+					else {
+						Freq_Saw+=1;
+					}
+					sprintf(Menu, "Frequency of Sawtooth Wave :%.1f\r\n",Freq_Saw);
+					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
+					break;
+				case 'd':
+					if(Freq_Saw<1){
+						Freq_Saw =0 ;
+					}
+					else {
+						Freq_Saw-=1;
+					}
+					sprintf(Menu, "Frequency of Sawtooth Wave :%.1f\r\n",Freq_Saw);
+					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
+					break;
+
+
+				case 'A':
+					if(Freq_Saw>9.9){
+						Freq_Saw =10 ;
+					}
+					else {
+						Freq_Saw+=0.1;
+					}
+					sprintf(Menu, "Frequency of Sawtooth Wave :%.1f\r\n",Freq_Saw);
+					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
+					break;
+				case 'D':
+					if(Freq_Saw<0.1){
+						Freq_Saw =0 ;
+					}
+					else {
+						Freq_Saw-=0.1;
+					}
+					sprintf(Menu, "Frequency of Sawtooth Wave :%.1f\r\n",Freq_Saw);
+					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
+					break;
+
+
+
+				case 'q':
+					if (VHigh_Saw>3.2){
+						VHigh_Saw=3.3;
+					}
+					else{
+						VHigh_Saw +=0.1;
+					}
+					sprintf(Menu, "V High :%.1f\r\n",VHigh_Saw);
+					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
+					break;
+				case 'w':
+					if (VHigh_Saw<VLow_Saw+0.1){
+						VHigh_Saw=VLow_Saw;
+					}
+					else{
+						VHigh_Saw -=0.1;
+					}
+					sprintf(Menu, "V High :%.1f\r\n",VHigh_Saw);
+					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
+					break;
+
+
+				case 'e':
+					if (VLow_Saw>VHigh_Saw-0.1){
+						VLow_Saw=VHigh_Saw;
+					}
+					else{
+						VLow_Saw +=0.1;
+					}
+					sprintf(Menu, "V Low :%.1f\r\n",VLow_Saw);
+					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
+					break;
+				case 'r':
+					if (VLow_Saw<0.1){
+						VLow_Saw=0;
+					}
+					else{
+						VLow_Saw -=0.1;
+					}
+					sprintf(Menu, "V Low :%.1f\r\n",VLow_Saw);
+					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
+					break;
+
+
+
+				case 'p':
+					sprintf(Menu, "Frequency of Sawtooth Wave :%.1f\r\n",Freq_Saw);
+					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
+					sprintf(Menu, "V High :%.1f\r\n",VHigh_Saw);
+					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
+					sprintf(Menu, "V Low :%.1f\r\n",VLow_Saw);
+					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
+					break;
+				case 'x':
+					State = Start_Menu;
+					break;
+				default:
+					sprintf(Menu, "Error!\r\n");
+					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
 					break;
 					}
 				break;
 
+//..............................................................Generator Sine Wave .............................................................
+
 			case Menu_2:
 				sprintf(Menu, 	"\n\nGenerator Sine Wave \r\n"
-						"a.Freq Up   (+1Hz)\r\n"
-						"d.Freq Down (-1Hz)\r\n"
+						"a.Freq Up   (+1Hz) 	A.(+0.1Hz)\r\n"
+						"d.Freq Down (-1Hz) 	D.(-0.1Hz)\r\n"
 						"\n"
 						"q.V High Up (+0.1V)	w.V High Down (-0.1V)\r\n"
 						"e.V Low  Up (+0.1V)	r.V Low  Down (-0.1V)\r\n"
 						"\n"
+						"p.Print All\r\n"
 						"x.Back\r\n");
 					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
 					State = Menu_2_Waitting_Input;
 					break;
 
-			case Menu_2_Waitting_Input :
+//..............................................................Menu Sine Wave .............................................................
+
+			case Menu_2_Waitting_Input :		//Sine Wave
 				switch(inputchar){
+				case -1:  //No Input
+					break;
+				case 'a':
+					if(Freq_Sin>9){
+						Freq_Sin =10 ;
+					}
+					else {
+						Freq_Sin+=1;
+					}
+					sprintf(Menu, "Frequency of Sawtooth Wave :%.1f\r\n",Freq_Sin);
+					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
+					break;
+				case 'd':
+					if(Freq_Sin<1){
+						Freq_Sin =0 ;
+					}
+					else {
+						Freq_Sin-=1;
+					}
+					sprintf(Menu, "Frequency of Sawtooth Wave :%.1f\r\n",Freq_Sin);
+					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
+					break;
+
+
+				case 'A':
+					if(Freq_Sin>9.9){
+						Freq_Sin =10 ;
+					}
+					else {
+						Freq_Sin+=0.1;
+					}
+					sprintf(Menu, "Frequency of Sawtooth Wave :%.1f\r\n",Freq_Sin);
+					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
+					break;
+				case 'D':
+					if(Freq_Sin<0.1){
+						Freq_Sin =0 ;
+					}
+					else {
+						Freq_Sin-=0.1;
+					}
+					sprintf(Menu, "Frequency of Sawtooth Wave :%.1f\r\n",Freq_Sin);
+					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
+					break;
+
+
+
+				case 'q':
+					if (VHigh_Sin>3.2){
+						VHigh_Sin=3.3;
+					}
+					else{
+						VHigh_Sin +=0.1;
+					}
+					sprintf(Menu, "V High :%.1f\r\n",VHigh_Sin);
+					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
+					break;
+				case 'w':
+					if (VHigh_Sin<VLow_Sin+0.1){
+						VHigh_Sin=VLow_Sin;
+					}
+					else{
+						VHigh_Sin -=0.1;
+					}
+					sprintf(Menu, "V High :%.1f\r\n",VHigh_Sin);
+					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
+					break;
+
+
+				case 'e':
+					if (VLow_Sin>VHigh_Sin-0.1){
+						VLow_Sin=VHigh_Sin;
+					}
+					else{
+						VLow_Sin +=0.1;
+					}
+					sprintf(Menu, "V Low :%.1f\r\n",VLow_Sin);
+					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
+					break;
+				case 'r':
+					if (VLow_Sin<0.1){
+						VLow_Sin=0;
+					}
+					else{
+						VLow_Sin -=0.1;
+					}
+					sprintf(Menu, "V Low :%.1f\r\n",VLow_Sin);
+					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
+					break;
+
+
+
+				case 'p':
+					sprintf(Menu, "Frequency of Sawtooth Wave :%.1f\r\n",Freq_Sin);
+					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
+					sprintf(Menu, "V High :%.1f\r\n",VHigh_Sin);
+					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
+					sprintf(Menu, "V Low :%.1f\r\n",VLow_Sin);
+					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
+					break;
+
+				case 'x':
+					State = Start_Menu;
+					break;
+				default:
+					sprintf(Menu, "Error!\r\n");
+					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
 					break;
 					}
 				break;
+
+//..............................................................Generator Square Wave .............................................................
 
 			case Menu_3:
 				sprintf(Menu, 	"\n\nGenerator Square Wave \r\n"
@@ -239,18 +546,157 @@ int main(void)
 						"q.V High Up (+0.1V)	w.V High Down (-0.1V)\r\n"
 						"e.V Low  Up (+0.1V)	r.V Low  Down (-0.1V)\r\n"
 						"\n"
-						"w..Duty cycle up (+10 Percent)	s..Duty cycle up (-10 Percent)\r\n"
+						"z.Duty cycle up (+10 Percent)	c.Duty cycle up (-10 Percent)\r\n"
+						"p.Print All\r\n"
 						"x.Back\r\n");
 					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
 					State = Menu_3_Waitting_Input;
 					break;
 
+//..............................................................Menu Square Wave .............................................................
+
 			case Menu_3_Waitting_Input :
 				switch(inputchar){
+				case -1:  //No Input
+					break;
+
+				case 'z':
+					if(Duty_C > 90){
+						Duty_C = 100;
+					}
+					else{
+						Duty_C += 10;
+					}
+					sprintf(Menu, "Duty_Cycle :%d\r\n",Duty_C);
+					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
+					break;
+				case 'c':
+					if(Duty_C < 10){
+						Duty_C = 0;
+					}
+					else{
+						Duty_C -= 10;
+					}
+					sprintf(Menu, "Duty_Cycle :%d\r\n",Duty_C);
+					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
+					break;
+
+
+				case 'a':
+					if(Freq_Square>9){
+						Freq_Square =10 ;
+					}
+					else {
+						Freq_Square+=1;
+					}
+					sprintf(Menu, "Frequency of Sawtooth Wave :%.1f\r\n",Freq_Square);
+					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
+					break;
+				case 'd':
+					if(Freq_Square<1){
+						Freq_Square =0 ;
+					}
+					else {
+						Freq_Square-=1;
+					}
+					sprintf(Menu, "Frequency of Sawtooth Wave :%.1f\r\n",Freq_Square);
+					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
+					break;
+
+
+				case 'A':
+					if(Freq_Square>9.9){
+						Freq_Square =10 ;
+					}
+					else {
+						Freq_Square+=0.1;
+					}
+					sprintf(Menu, "Frequency of Sawtooth Wave :%.1f\r\n",Freq_Square);
+					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
+					break;
+				case 'D':
+					if(Freq_Square<0.1){
+						Freq_Square =0 ;
+					}
+					else {
+						Freq_Square-=0.1;
+					}
+					sprintf(Menu, "Frequency of Sawtooth Wave :%.1f\r\n",Freq_Square);
+					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
+					break;
+
+
+
+				case 'q':
+					if (VHigh_Square>3.2){
+						VHigh_Square=3.3;
+					}
+					else{
+						VHigh_Saw +=0.1;
+					}
+					sprintf(Menu, "V High :%.1f\r\n",VHigh_Square);
+					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
+					break;
+				case 'w':
+					if (VHigh_Square<VLow_Saw+0.1){
+						VHigh_Square=VLow_Saw;
+					}
+					else{
+						VHigh_Square -=0.1;
+					}
+					sprintf(Menu, "V High :%.1f\r\n",VHigh_Square);
+					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
+					break;
+
+
+				case 'e':
+					if (VLow_Square>VHigh_Square-0.1){
+						VLow_Square=VHigh_Square;
+					}
+					else{
+						VLow_Square +=0.1;
+					}
+					sprintf(Menu, "V Low :%.1f\r\n",VLow_Square);
+					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
+					break;
+				case 'r':
+					if (VLow_Square<0.1){
+						VLow_Square=0;
+					}
+					else{
+						VLow_Square -=0.1;
+					}
+					sprintf(Menu, "V Low :%.1f\r\n",VLow_Square);
+					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
+					break;
+
+
+
+				case 'p':
+					sprintf(Menu, "Frequency of Sawtooth Wave :%.1f\r\n",Freq_Square);
+					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
+					sprintf(Menu, "V High :%.1f\r\n",VHigh_Square);
+					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
+					sprintf(Menu, "V Low :%.1f\r\n",VLow_Square);
+					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
+					break;
+
+
+
+				case 'x':
+					State = Start_Menu;
+					break;
+				default:
+					sprintf(Menu, "Error!\r\n");
+					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
 					break;
 					}
 				break;
 		}
+
+
+
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -332,7 +778,7 @@ static void MX_ADC1_Init(void)
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
   hadc1.Init.NbrOfConversion = 1;
   hadc1.Init.DMAContinuousRequests = ENABLE;
-  hadc1.Init.EOCSelection = ADC_EOC_SEQ_CONV;
+  hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
   if (HAL_ADC_Init(&hadc1) != HAL_OK)
   {
     Error_Handler();
@@ -375,7 +821,7 @@ static void MX_SPI3_Init(void)
   hspi3.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi3.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi3.Init.NSS = SPI_NSS_SOFT;
-  hspi3.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_32;
+  hspi3.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_4;
   hspi3.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi3.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi3.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -409,7 +855,7 @@ static void MX_TIM3_Init(void)
 
   /* USER CODE END TIM3_Init 1 */
   htim3.Instance = TIM3;
-  htim3.Init.Prescaler = 100;
+  htim3.Init.Prescaler = 99;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim3.Init.Period = 100;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -423,7 +869,7 @@ static void MX_TIM3_Init(void)
   {
     Error_Handler();
   }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
   if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
   {
@@ -451,7 +897,7 @@ static void MX_TIM11_Init(void)
 
   /* USER CODE END TIM11_Init 1 */
   htim11.Instance = TIM11;
-  htim11.Init.Prescaler = 100;
+  htim11.Init.Prescaler = 99;
   htim11.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim11.Init.Period = 65535;
   htim11.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
