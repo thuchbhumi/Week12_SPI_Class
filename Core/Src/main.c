@@ -57,7 +57,7 @@ uint8_t DACConfig = 0b0011;
 uint8_t State 		=1 ;
 uint8_t Mode		=0 ;
 uint8_t Slope		= 1;
-uint8_t	Duty_C		=0;
+uint8_t	Duty_C		=50;
 
 uint16_t ADCin 		= 0;
 uint16_t dataOut	= 0;
@@ -78,7 +78,7 @@ float Time 			=0.0;
 float Rad			=0;
 float Amp			=0;
 float Ver_Shift		=0;
-
+float Period_High	=0;
 int Sum_Freq 		=0;
 //upper 4 bit of DAC
 
@@ -188,6 +188,7 @@ int main(void)
 			timestamp = micros();
 			Time +=0.01;
 
+
 //..............................................................Calculate Sawtooth Wave...........................................................................
 
 			if(Mode == 1 ){
@@ -222,11 +223,24 @@ int main(void)
 //..............................................................Calculate Square Wave...........................................................................
 
 			if(Mode == 3){
-				dataOut = dataOut;
+				Period_High = Duty_C/(Freq_Square*100.0);
+				if(Time <= Period_High){
+					dataOut = VHigh_Square*(4096.0/3.3);
+				}
+				else if(Time > Period_High && Time <=(1/Freq_Square)){
+					dataOut = VLow_Square*(4096.0/3.3);
+				}
+
+				else {
+					Time =0.0 ;
+				}
 			}
 
-
+			if (hspi3.State == HAL_SPI_STATE_READY && HAL_GPIO_ReadPin(SPI_SS_GPIO_Port, SPI_SS_Pin) == GPIO_PIN_SET){
+				MCP4922SetOutput(DACConfig, dataOut);
+			}
 		}
+
 //..............................................................Main Menu...........................................................................
 
 		switch(State){
@@ -518,7 +532,7 @@ int main(void)
 
 
 				case 'p':
-					sprintf(Menu, "Frequency of Sawtooth Wave :%.1f\r\n",Freq_Sin);
+					sprintf(Menu, "Frequency of Sin Wave :%.1f\r\n",Freq_Sin);
 					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
 					sprintf(Menu, "V High :%.1f\r\n",VHigh_Sin);
 					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
@@ -673,7 +687,7 @@ int main(void)
 
 
 				case 'p':
-					sprintf(Menu, "Frequency of Sawtooth Wave :%.1f\r\n",Freq_Square);
+					sprintf(Menu, "Frequency of Square Wave :%.1f\r\n",Freq_Square);
 					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
 					sprintf(Menu, "V High :%.1f\r\n",VHigh_Square);
 					HAL_UART_Transmit(&huart2, (uint8_t*)Menu, strlen(Menu), 1000);
@@ -869,7 +883,7 @@ static void MX_TIM3_Init(void)
   {
     Error_Handler();
   }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
   if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
   {
